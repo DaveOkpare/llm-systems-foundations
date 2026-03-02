@@ -129,10 +129,17 @@ class Value:
 
     def softmax(self):
         exp_vals = self.exp()
-        return exp_vals / exp_vals.sum()
+        out = exp_vals / exp_vals.sum()
+
+        def backward():
+            jacobian = np.diag(out.data) - np.outer(out.data, out.data)
+            self.grad += jacobian @ out.grad
+
+        out.backward = backward
+        return out
 
     def neg(self):
-        out = Value(self.data * -1)
+        out = Value(self.data * -1, _children=(self,))
 
         def backward():
             self.grad += out.grad * -1
