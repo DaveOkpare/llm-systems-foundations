@@ -5,7 +5,7 @@ class Value:
     def __init__(self, data, _children=()) -> None:
         self.data = np.asarray(data)
         self.grad = np.zeros_like(self.data)
-        self.prev = set(_children)
+        self._prev = set(_children)
         self.backward = lambda: None
 
     def __repr__(self) -> str:
@@ -84,7 +84,9 @@ class Value:
         out = Value(result, _children=(self,))
 
         def backward():
-            grad = out.grad / (self.data.shape[axis] if axis else self.data.size)
+            grad = out.grad / (
+                self.data.shape[axis] if axis is not None else self.data.size
+            )
             if not keepdims and axis is not None:
                 grad = np.expand_dims(grad, axis=axis)
             self.grad += np.broadcast_to(grad, self.data.shape)
