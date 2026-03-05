@@ -38,16 +38,16 @@ def create_dataset(seq: str, stride: int = 5) -> list:
 
 def transform_to_tensor(seq: str):
     vectors = []
-    _seq = re.findall(r"\[PAD\]|[a-z]", seq)
+    tokens = re.findall(r"\[PAD\]|[a-z]", seq)
 
-    for char in _seq:
-        vec = np.zeros(27)
+    for char in tokens:
+        char_vec = np.zeros(28)  # 27 for ID + 1 for Vowel
         idx = char_map[char]
-        vec[idx] = 1
-        vec[-1] = 1 if char in VOWELS else 0
-        vectors.extend(vec.data)
+        char_vec[idx] = 1
+        char_vec[27] = 1.0 if char in VOWELS else 0.0
+        vectors.extend(char_vec)
 
-    return vectors
+    return np.array(vectors)
 
 
 if __name__ == "__main__":
