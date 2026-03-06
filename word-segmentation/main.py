@@ -51,4 +51,10 @@ def transform_to_tensor(seq: str):
 
 
 if __name__ == "__main__":
-    print(create_dataset("i like ai"))
+    text = "I love building AI models"
+
+    ds = create_dataset(text)
+    ds = [(transform_to_tensor(sequence), label) for sequence, label in ds]
+    X, y = zip(*ds)
+    print("X: ", X)
+    print("y: ", y)
