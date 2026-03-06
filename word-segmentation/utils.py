@@ -27,9 +27,9 @@ def create_dataset(seq: str, stride: int = 5) -> list:
         while ptr < len(seq) and seq[ptr] == " ":
             ptr += 1
 
-        target = 0
+        target = np.array(0)
         if ptr + 1 < len(seq) and seq[ptr + 1] == " ":
-            target = 1
+            target = np.array(1)
 
         ptr += 1
         dataset.append((substr, target))
@@ -39,12 +39,16 @@ def create_dataset(seq: str, stride: int = 5) -> list:
 def transform_to_tensor(seq: str):
     vectors = []
     tokens = re.findall(r"\[PAD\]|[a-z]", seq)
+    offset = len(tokens) // 2
 
-    for char in tokens:
-        char_vec = np.zeros(28)  # 27 for ID + 1 for Vowel
+    for current_pos, char in enumerate(tokens):
+        char_vec = np.zeros(
+            29
+        )  # 27 for ID + 1 for Vowel + 1 Position of current char in sequence
         idx = char_map[char]
         char_vec[idx] = 1
         char_vec[27] = 1.0 if char in VOWELS else 0.0
+        char_vec[28] = 1.0 if current_pos == (offset - 1) else 0.0
         vectors.extend(char_vec)
 
     return np.array(vectors)
