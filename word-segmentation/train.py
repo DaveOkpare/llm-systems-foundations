@@ -20,9 +20,7 @@ class BookDataset(Dataset):
 
     def __getitem__(self, index):
         X, y = self.data[index]
-        return torch.from_numpy(X).unsqueeze(0).float(), torch.from_numpy(y).reshape(
-            1
-        ).float()
+        return torch.from_numpy(X).float(), torch.from_numpy(y).reshape(1).float()
 
 
 def create_dataloader(text):
