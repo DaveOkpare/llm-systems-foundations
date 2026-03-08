@@ -1,3 +1,5 @@
+import re
+
 import httpx
 import torch
 from models import MLP
@@ -30,20 +32,33 @@ def create_dataloader(text):
     ]
     split = int(0.8 * len(dataset))
     train_ds, val_ds = dataset[:split], dataset[split:]
-    train_loader = DataLoader(BookDataset(train_ds), shuffle=True, batch_size=256)
-    val_loader = DataLoader(BookDataset(val_ds), shuffle=True, batch_size=256)
+    train_loader = DataLoader(BookDataset(train_ds), shuffle=True, batch_size=64)
+    val_loader = DataLoader(BookDataset(val_ds), shuffle=True, batch_size=64)
     return train_loader, val_loader
 
 
 if __name__ == "__main__":
     url = "https://www.gutenberg.org/files/2701/2701-0.txt"  # Moby-Dick
+    print(f"Downloading dataset from {url}...")
     text = httpx.get(url, timeout=30).text
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    text = re.sub(r"[^A-Za-z\s]", " ", text)
+    text = " ".join(text.split()).lower()
+    print(f"Download complete. ({len(text):,} characters)")
+
+    print("Preparing dataloaders...")
+    if torch.backends.mps.is_available():
+        device = "mps"
+    elif torch.cuda.is_available():
+        device = "cuda"
+    else:
+        device = "cpu"
     model = model.to(device=device)
 
     train_loader, val_loader = create_dataloader(text)
+    print(f"Using device: {device}")
     epochs = 5
 
+    print(f"Starting training for {epochs} epochs...")
     for i in range(epochs):
         model.train()
         train_loss = 0
