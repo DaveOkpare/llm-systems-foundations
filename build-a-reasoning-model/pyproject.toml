@@ -1,14 +1,11 @@
 [project]
-name = "llm-systems-foundations"
+name = "build-a-reasoning-model"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "httpx>=0.28.1",
-    "numpy>=2.4.2",
+    "reasoning-from-scratch>=0.1.21",
+    "tokenizers>=0.22.2",
     "torch>=2.10.0",
 ]
-
-[tool.uv.workspace]
-members = ["build-a-reasoning-model"]
