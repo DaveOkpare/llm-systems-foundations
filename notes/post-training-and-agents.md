@@ -1123,6 +1123,653 @@ If you want a dense, LC-only curriculum:
 
 ---
 
+## 15. Codebases to read, replicate, modify
+
+Reading production agent code is the fastest way to internalize harness
+design. This section names the repos worth studying, grouped by
+purpose, with specific read/replicate/modify tasks for each.
+
+### 15.1 How to learn from an agent codebase
+
+A repeatable method — the goal is *pattern recognition*, not coverage:
+
+1. **Orient (15 min).** Read README + any architecture doc. Find the
+   main entry point — usually the agent loop.
+2. **Trace one turn (1 hr).** Pick a trivial prompt and walk every line
+   the request touches: model call → tool dispatch → permission check
+   → state update. Draw the sequence by hand.
+3. **Map the harness primitives.** For every repo, locate and name:
+   (a) the loop, (b) tool registry, (c) permission/safety layer,
+   (d) context/compaction strategy, (e) state/memory backend,
+   (f) subagent spawn, (g) extensibility hooks. If one is missing,
+   note it — that's a design choice.
+4. **Diff against another harness.** Compare primitive-for-primitive
+   with one you've already read. The *difference* is where the design
+   space lives.
+5. **Modify one thing.** Add a hook. Swap a backend. Break compaction
+   on purpose and watch the failure mode. Don't just read.
+6. **Replicate the smallest primitive.** Port one pattern into a
+   minimal Python script of your own. If you can't reproduce it
+   standalone, you haven't understood it.
+
+Budget: ~1 day per "read" repo, ~3 days per "replicate" repo. Don't
+read more than two in parallel.
+
+### 15.2 Harness design — read these first
+
+Ordered from smallest/most readable to most production-hardened.
+
+- **huggingface/smolagents** — "You can read the entire codebase and
+  understand exactly what happens." Code-first loop (agent writes and
+  executes Python to act). Start here if you want a single weekend.
+  https://github.com/huggingface/smolagents
+  *Task:* trace one full agent turn; swap the default tool set.
+
+- **langchain-ai/deepagents** — Python, built on LangGraph. The seven-
+  layer middleware stack is the clearest production example of harness
+  primitives mapped onto code. Already deep-dived in §12.1a.
+  https://github.com/langchain-ai/deepagents
+  *Task:* add a custom middleware (e.g. a logging one) between
+  `FilesystemMiddleware` and `SubAgentMiddleware`.
+
+- **anthropics/claude-agent-sdk-python** — Official SDK backing Claude
+  Code. Async `query` iterator, custom tools as in-process MCP servers,
+  hook system. Smaller than you'd expect.
+  https://github.com/anthropics/claude-agent-sdk-python
+  *Task:* define one `PreToolUse` hook and one custom MCP tool; watch
+  them fire on a real run.
+
+- **anthropics/claude-agent-sdk-demos** — End-to-end examples: research
+  agent, code reviewer, orchestrator. Great reference for how the SDK
+  is meant to be composed.
+  https://github.com/anthropics/claude-agent-sdk-demos
+
+- **anthropics/claude-code** — The Claude Code CLI itself is now
+  published. Large, but the loop + permission + compaction code is the
+  highest-fidelity primary source for everything in §12.1.
+  https://github.com/anthropics/claude-code
+  *Task:* locate the `queryLoop`; map the five compaction stages in
+  code; cross-check against arXiv:2604.14228.
+
+- **openai/openai-agents-python** — Production replacement for Swarm.
+  Handoffs, tracing, guardrails, voice agents. The canonical OpenAI
+  take on what's minimal.
+  https://github.com/openai/openai-agents-python
+  *Task:* diff its "handoff" primitive against deepagents'
+  `SubAgentMiddleware` — compare explicit-transfer vs. spawned-context.
+
+- **openai/swarm** — The pre-Agents-SDK educational repo. Tiny, still
+  widely read for pedagogy.
+  https://github.com/openai/swarm
+
+- **NousResearch/hermes-agent** — Memory-first, self-improving harness;
+  five execution backends (local/Docker/SSH/Singularity/Modal). Most
+  interesting for the skill-learning loop.
+  https://github.com/nousresearch/hermes-agent
+  *Task:* read the skill acquisition / memory layer — compare against
+  deepagents' `MemoryMiddleware`.
+
+- **HKUDS/OpenHarness** — Messaging-first open harness with built-in
+  personal agent (Ohmo). Different surface from the above — worth
+  reading as a counterpoint.
+  https://github.com/HKUDS/OpenHarness
+
+### 15.3 Coding agents — for SWE-bench / Terminal-Bench-style tasks
+
+- **All-Hands-AI/OpenHands** (formerly OpenDevin) — Universal agent
+  controller, sandboxed execution, multi-session. Series A backed;
+  best-funded OSS coding agent. Read the sandbox layer especially.
+  https://github.com/All-Hands-AI/OpenHands
+- **princeton-nlp/SWE-agent** — Original research codebase behind the
+  SWE-bench leaderboard runs. Tight coupling between the "Agent-
+  Computer Interface" (ACI) and tool design — read this for ACI
+  concepts.
+  https://github.com/princeton-nlp/SWE-agent
+- **Aider-AI/aider** — AI pair programmer. Minimal harness, aggressive
+  prompt engineering, git-centric state. Good example of a specialized
+  harness.
+  https://github.com/Aider-AI/aider
+- **anthropics/claude-code** (again — it is a coding agent).
+
+*Replicate task:* port a minimal SWE-agent-style ACI (`view_file`,
+`edit_file`, `run_tests`) onto deepagents. Run it on 10 SWE-bench
+tasks locally.
+
+### 15.4 Multi-agent frameworks
+
+- **microsoft/autogen** — Conversation-based multi-agent framework.
+  Large, mature, lots of patterns in one repo.
+  https://github.com/microsoft/autogen
+- **geekan/MetaGPT** — Role-based multi-agent (Product Manager,
+  Architect, Engineer, QA). Canonical example of hierarchical
+  coordination.
+  https://github.com/geekan/MetaGPT
+- **joaomdmoura/crewAI** — Role + process abstraction. Lightweight
+  compared to AutoGen; good first read for multi-agent.
+  https://github.com/joaomdmoura/crewAI
+- **langchain-ai/langgraph** — The graph runtime underneath most LC
+  multi-agent examples. Read the state-reducer / checkpointer code.
+  https://github.com/langchain-ai/langgraph
+- **langchain-ai/open_deep_research** — LC's open clone of Deep
+  Research. Canonical pattern: planner → many parallel subagents →
+  synthesizer.
+  https://github.com/langchain-ai/open_deep_research
+
+*Modify task:* take one of these, change the coordination structure
+from centralized to peer-to-peer (or vice versa). Measure what breaks.
+
+### 15.5 Evals & benchmarks — codebases to study
+
+- **UKGovernmentBEIS/inspect_ai** — The UK AI Safety Institute's eval
+  framework. Used for serious LLM evals: agentic tasks, coding,
+  reasoning. Web viewer + VS Code extension.
+  https://github.com/UKGovernmentBEIS/inspect_ai
+- **UKGovernmentBEIS/inspect_evals** — 200+ community-contributed
+  evaluations built on Inspect. Best corpus of *real* eval
+  implementations.
+  https://github.com/UKGovernmentBEIS/inspect_evals
+- **openai/evals** — Framework + open registry. Reference for
+  eval-as-data-spec.
+  https://github.com/openai/evals
+- **stanfordnlp/dspy** — Programming-over-prompting. Eval-driven
+  prompt/pipeline optimization. Read for `dspy.Evaluate` and the GEPA
+  trusted-monitor tutorial.
+  https://github.com/stanfordnlp/dspy
+- **princeton-nlp/SWE-bench** — The benchmark harness. Worth reading
+  alongside Berkeley RDI's "How we broke it" post (§13.3) to see
+  exactly *where* the exploits live in code.
+  https://github.com/princeton-nlp/SWE-bench
+- **sierra-research/tau2-bench** — Tool-agent-user interaction
+  benchmark (airline / retail / telecom). Verifier design is
+  particularly good.
+  https://github.com/sierra-research/tau2-bench
+- **StonyBrookNLP/appworld** — Long-horizon agent environment; the
+  Apple LOOP paper (§7) used this.
+  https://github.com/StonyBrookNLP/appworld
+- **xlang-ai/OSWorld** — Full Ubuntu VM desktop agent benchmark.
+- **web-arena-x/webarena** — Web-agent benchmark.
+
+*Replicate task:* pick any simple eval in `inspect_evals`; port it to
+`openai/evals` format. Feel the abstraction mismatch — that's the
+design lesson.
+
+### 15.6 Post-training & RL-on-LMs codebases
+
+- **huggingface/trl** — SFT, DPO, PPO, GRPO. The library everyone
+  builds on. Read `trl/trainer/grpo_trainer.py`.
+  https://github.com/huggingface/trl
+- **huggingface/open-r1** — Open reproduction of DeepSeek-R1. Data
+  pipeline + training recipes.
+  https://github.com/huggingface/open-r1
+- **huggingface/alignment-handbook** — Zephyr/Tulu-style recipes.
+  Read the YAML configs, not just the code.
+  https://github.com/huggingface/alignment-handbook
+- **huggingface/smol-course** — Tutorial + runnable scripts for SFT /
+  DPO / preference alignment. Laptop-friendly.
+  https://github.com/huggingface/smol-course
+- **allenai/open-instruct** — AI2's production code for Tulu 3.
+  Fullest open reference pipeline for modern post-training.
+  https://github.com/allenai/open-instruct
+- **volcengine/verl** — Production RL-for-LM framework; read the
+  rollout engine + scheduler.
+  https://github.com/volcengine/verl
+- **OpenRLHF/OpenRLHF** — The other main production framework.
+  https://github.com/OpenRLHF/OpenRLHF
+- **WooooDyy/AgentGym-RL** — Multi-turn agent RL training loop.
+  Already called out in §7.
+  https://github.com/WooooDyy/AgentGym-RL
+
+*Replicate task:* run a tiny GRPO on TRL with a synthetic verifiable
+reward (e.g. "output must parse as JSON"). Then swap the verifier for
+a code-exec one. This is the core RLVR skill.
+
+### 15.7 Cookbooks & recipe repos (the fastest way to up-skill)
+
+Cookbooks are short, runnable notebooks — each is 30–90 minutes and
+teaches one pattern.
+
+- **anthropics/claude-cookbooks** — Tool use, agent patterns, MCP,
+  extended thinking, caching, RAG. Browsable at
+  platform.claude.com/cookbook.
+  https://github.com/anthropics/claude-cookbooks
+- **anthropics/anthropic-cookbook** — Older repo; still useful for
+  baseline patterns.
+- **openai/openai-cookbook** — Canonical OpenAI how-to collection;
+  the agents/ and evals/ directories are the relevant ones.
+  https://github.com/openai/openai-cookbook
+- **langchain-ai/langsmith-cookbook** — Eval + tracing recipes.
+
+*Daily discipline:* work one cookbook notebook per day for 30 days.
+Don't just read — run it, break it, rewrite one cell.
+
+### 15.8 MCP — the protocol binding harnesses to tools
+
+If you work on harnesses, you will end up reading MCP source.
+
+- **modelcontextprotocol/modelcontextprotocol** — the spec.
+- **modelcontextprotocol/servers** — reference server
+  implementations; best way to learn the protocol is to read and run
+  them.
+  https://github.com/modelcontextprotocol/servers
+- **modelcontextprotocol/python-sdk** / **typescript-sdk** — the
+  client/server SDKs.
+
+### 15.9 A 90-day learn-by-reading plan
+
+A concrete schedule if you want one:
+
+**Weeks 1–2 — Small, readable harnesses**
+- Read `smolagents` end-to-end.
+- Read `openai/swarm` (tiny).
+- Work through 5 `anthropic-cookbooks` recipes.
+
+**Weeks 3–4 — deepagents deep dive**
+- Read all seven middleware modules.
+- Write a custom middleware and a custom backend.
+- Reproduce one `open_deep_research` pattern from scratch on top of
+  deepagents.
+
+**Weeks 5–6 — Production harnesses**
+- Read `claude-agent-sdk-python` and write two demo agents.
+- Read `openai/openai-agents-python`; diff against deepagents.
+- Skim `anthropics/claude-code` main loop; cross-ref arXiv:2604.14228.
+
+**Weeks 7–8 — Evals**
+- Build a Hamel-Husain-style eval on one of your agents (§13.1).
+- Port one `inspect_evals` eval into `openai/evals` format.
+- Run the Berkeley RDI "Agent-Eval Checklist" on a benchmark of your
+  choice.
+
+**Weeks 9–10 — Coding-agent replication**
+- Stand up OpenHands or SWE-agent locally.
+- Run 10 SWE-bench Verified tasks end-to-end.
+- Port a minimal ACI onto deepagents; compare pass rates.
+
+**Weeks 11–12 — Post-training**
+- Tiny GRPO run on TRL with a synthetic verifier.
+- Swap the verifier for a code-exec reward.
+- Wire into AgentGym-RL; run one multi-turn agent RL job.
+
+**Week 13 — Synthesis**
+- Write your own minimal harness from scratch (one file, <500 lines):
+  loop + 3 tools + permission check + compaction + one subagent.
+  If you can write this without copy-pasting, you've internalized the
+  design space.
+
+---
+
+## 16. Deep-dives on the four best harnesses
+
+We can't read each codebase cover-to-cover, but secondary material does
+most of the work for us — architecture docs, reverse-engineering
+writeups, the authors' own blog posts, and tutorial walkthroughs. For
+each of the four harnesses worth studying, this section lists the
+highest-signal reading (plus primary-source facts pulled directly from
+those sources).
+
+### 16.1 Claude Code (Anthropic)
+
+The most analyzed harness in the industry. A leak of ~512K lines of
+production TypeScript in early 2026 produced an explosion of
+architecture writeups; combined with Anthropic's own posts and the
+VILA-Lab design-space paper, there's more secondary material on Claude
+Code than on any other agent system.
+
+**Primary facts worth memorizing**
+
+- **Five-layer architecture** (clean dependency direction, each layer
+  only talks to the one below): Presentation (Ink-based React
+  terminal renderer) → Application (QueryEngine + commands + hooks) →
+  Domain (Tool interface, AppState, permission decisions) →
+  Infrastructure (API clients, persistence, MCP) → Bootstrap (150+
+  property session singleton).
+- **Tool interface = core design pattern.** Every capability
+  implements identity + Zod I/O schema + execution method +
+  `checkPermissions()`. Enables 50+ tools to plug in without
+  modifying the query loop. MCP tools plug in identically.
+- **Cascading permission gates (4):** static rules (`settings.json`) →
+  tool's own `checkPermissions()` → permission mode (`bypass/auto/
+  default/plan`) → user prompt. Safe ops auto-approve, destructive
+  ones require consent.
+- **Five-layer compaction:** (1) Tool Result Budget — persist >20K
+  char results to disk; (2) Snip — clear old tool results, preserve
+  structure; (3) Microcompaction — remove old tool results per turn;
+  (4) Context Collapse — model-side projection; (5) Autocompact —
+  triggered ~13K below window, tries session-memory compression first,
+  falls back to forked-agent full summary.
+- **Async generators as the core primitive** — streaming events, not
+  blocking responses.
+- **Session Memory file (~12K tokens)** maintained by a background
+  process with sections: current state · task spec · errors ·
+  learnings · worklog. Source for lightweight SM-Compact.
+- **Multi-strategy tool execution:** read-only tools batch in
+  parallel; write tools execute sequentially; permission checks
+  inline.
+- **Post-compaction cleanup:** invalidates six caches (microcompact
+  state, context collapse, memory files, message cache, classifier
+  approvals, speculative shell checks) to prevent state corruption.
+
+**Primary-source reading (ordered)**
+
+1. **Anthropic: Harness design for long-running application
+   development** — already in §12.1 sources. Start here.
+   https://www.anthropic.com/engineering/harness-design-long-running-apps
+2. **Dive into Claude Code: The Design Space of Today's and Future AI
+   Agent Systems** (arXiv:2604.14228) — the academic treatment;
+   VILA-Lab. The most complete single document.
+   https://arxiv.org/html/2604.14228v1 ·
+   repo: https://github.com/VILA-Lab/Dive-into-Claude-Code
+3. **Zain Hasan — Inside Claude Code: An Architecture Deep Dive** —
+   clearest engineer-friendly walkthrough of the five layers, tool
+   interface, permission cascade, and compaction.
+   https://zainhas.github.io/blog/2026/inside-claude-code-architecture/
+
+**Reverse-engineering analyses (from the leak)**
+
+- **WaveSpeedAI: Claude Code architecture Deep Dive — What the Leaked
+  Source Reveals** — tool system, query engine, multi-agent patterns,
+  context compression.
+  https://wavespeed.ai/blog/posts/claude-code-architecture-leaked-source-deep-dive/
+- **bits-bytes-nn: Claude Code Architecture Analysis** — compact
+  annotated view.
+  https://bits-bytes-nn.github.io/insights/agentic-ai/2026/03/31/claude-code-architecture-analysis.html
+- **Han HELOIR YAN (Data Science Collective): Everyone Analyzed
+  Claude Code's Features. Nobody Analyzed Its Architecture.**
+  https://medium.com/data-science-collective/everyone-analyzed-claude-codes-features-nobody-analyzed-its-architecture-1173470ab622
+- **JIN System Architect: Claude Code Runtime Architecture — A Deep
+  Dive for Engineers**.
+  https://medium.com/jin-system-architect/claude-code-runtime-architecture-a-deep-dive-for-engineers-who-actually-want-to-understand-whats-31e859c2038e
+- **redreamality: Claude Code Leak — A Deep Dive into Anthropic's AI
+  Coding Agent Architecture**.
+  https://redreamality.com/blog/claude-code-source-leak-architecture-analysis/
+- **Varonis: A Look Inside Claude's Leaked AI Coding Agent** —
+  security-oriented perspective.
+  https://www.varonis.com/blog/claude-code-leak
+- **ComeOnOliver/claude-code-analysis** (GitHub) — comprehensive
+  reverse-engineering repo; module/pattern index.
+  https://github.com/ComeOnOliver/claude-code-analysis
+- **liz-in-tech/open-claude-code** — mirrors Claude Code source
+  (v2.1.88) for study.
+  https://github.com/liz-in-tech/open-claude-code
+
+**Epsilla: 12 Reusable Agentic Harness Design Patterns from Claude
+Code** (§12.1a has the full breakdown).
+https://www.epsilla.com/blogs/2026-04-18-deep-dive-12-reusable-agentic-harness-design-patte
+
+### 16.2 Hermes Agent (Nous Research)
+
+The most interesting harness *as a research artifact*: memory-first,
+self-improving, with a closed learning loop that turns experience
+into reusable skills. Released Feb 25 2026; MIT; ~95.6k stars by mid-
+April.
+
+**Primary facts worth memorizing**
+
+- **Scale:** 47 registered tools across 19 toolsets · 18 platform
+  adapters (Telegram, Discord, Slack, WhatsApp, Signal, Matrix, …) ·
+  6 terminal execution backends (local, Docker, SSH, Modal, Daytona,
+  Singularity).
+- **Three entry points → one core:** CLI, Gateway, ACP → `AIAgent`.
+- **The loop:** "User input → `HermesCLI.process_input()` →
+  `AIAgent.run_conversation()` → `prompt_builder.build_system_prompt()`
+  → `runtime_provider.resolve_runtime_provider()` → API call →
+  `tool_calls?` → `model_tools.handle_function_call()` → loop → final
+  response → display → save to SessionDB."
+- **`AIAgent` (`run_agent.py`, ~10,700 lines)** handles provider
+  selection, prompt construction, tool execution, retries, fallback,
+  callbacks, compression, persistence — across three API modes.
+- **Skill system:** skills are *context injected during prompt
+  assembly* — not runtime plugins. Bundled vs optional; per-platform
+  config (`skills_config.py`); cron jobs can attach skills + scripts
+  as context.
+- **Memory:** pluggable provider system. `Memory manager
+  orchestration` + `Memory provider ABC`; conversation-scoped files
+  (`MEMORY.md`, `USER.md`) feed prompt assembly.
+- **Persistence:** SQLite session storage with FTS5 full-text search;
+  lineage tracking + atomic writes.
+
+**Primary-source reading**
+
+1. **Official architecture doc** —
+   https://hermes-agent.nousresearch.com/docs/developer-guide/architecture
+2. **Full docs site** — https://hermes-agent.nousresearch.com/docs/
+3. **README** (GitHub) — https://github.com/nousresearch/hermes-agent
+
+**Deep-dives & guides**
+
+- **Inside Hermes Agent: A Deep Dive into Its Technical Architecture**
+  (Hecate, Medium, April 2026). Best single secondary source.
+  https://medium.com/@hecate_he/inside-hermes-agent-a-deep-dive-into-its-technical-architecture-175dcf67d671
+- **Lushbinary: Hermes Agent Developer Guide — Setup & Self-Improving
+  AI**.
+  https://lushbinary.com/blog/hermes-agent-developer-guide-setup-skills-self-improving-ai/
+- **NxCode: What Is Hermes Agent? Complete Guide to the Self-
+  Improving AI (2026)**.
+  https://www.nxcode.io/resources/news/hermes-agent-complete-guide-self-improving-ai-2026
+- **DataCamp: Nous Research Hermes Agent — Setup and Tutorial Guide**.
+  https://www.datacamp.com/tutorial/hermes-agent
+- **mudrii/hermes-agent-docs** — third-party comprehensive docs mirror
+  (v0.2.0).
+  https://github.com/mudrii/hermes-agent-docs
+- **Hermes Agent Orange Book** (alchaincyf/hermes-agent-orange-book) —
+  "橙皮书系列" — Chinese-language tutorial book (machine-translate if
+  needed; the code examples are valuable regardless).
+  https://github.com/alchaincyf/hermes-agent-orange-book
+- **Petronella: 2026 Release Tracker** — follows v0.9 → v0.10 → v0.11
+  feature changes.
+  https://petronellatech.com/blog/hermes-agent-ai-guide-2026
+- **DEV Community: Hermes Agent Review** (Apr 2026).
+  https://dev.to/tokenmixai/hermes-agent-review-956k-stars-self-improving-ai-agent-april-2026-11le
+- **heyuan110: Hermes Agent Hands-On** — review from actual daily use.
+  https://www.heyuan110.com/posts/ai/2026-04-14-hermes-agent-guide/
+
+**What to study specifically:** the closed-loop learning pathway
+(solve task → write skill doc → store outcome → retrieve next time).
+This pattern is missing from every other harness in this note.
+
+### 16.3 OpenClaw — with Pi Agent at its core
+
+OpenClaw is the messaging-first harness (~354k stars). The twist: its
+agent runtime is a separately-designed minimal agent called **Pi**
+(by Armin Ronacher / pi-mono). OpenClaw embeds Pi's `AgentSession` via
+`createAgentSession()` — not via subprocess or RPC.
+
+**Primary facts — Pi (the minimal core)**
+
+- **Radical minimalism:** "the shortest system prompt of any agent
+  that I'm aware of and it only has four tools: **Read, Write, Edit,
+  Bash**." — Armin Ronacher.
+- **Design thesis:** "if you want the agent to do something that it
+  doesn't do yet, you ask the agent to extend itself." Celebrates
+  *code writing and running code* as the extensibility mechanism.
+- **Session extensions persist state** — enables hot-reloading and
+  branching workflows.
+- **No MCP integration** — deliberate. Ronacher's critique: MCP
+  tools "need to be loaded into the system context on session start.
+  That makes it very hard to impossible to fully reload."
+- **Session portability across providers** is a stated design goal.
+
+**Primary facts — OpenClaw (the platform wrapping Pi)**
+
+- **Embeds Pi via `createAgentSession()`** — in-process, not RPC.
+- **Entry:** `run.ts` → `runEmbeddedPiAgent()` with modules for
+  single-attempt logic, parameters, response payloads, vision image
+  injection, and attempt result types.
+- **Tools = Pi base (`codingTools`: read/bash/edit/write) + OpenClaw
+  additions**: messaging, browser, canvas, sessions, cron, gateway;
+  channel-specific tools for Discord / Telegram / Slack / WhatsApp.
+  Filtering by profile / provider / agent / group / sandbox.
+- **OpenClaw customizes:** replaces `bash` with `exec/process`;
+  customizes `read/edit/write` for sandbox use.
+- **Image injection is prompt-local**: load image refs from the
+  *current* prompt and pass via `images` for that turn only —
+  no re-scanning older turns.
+- **Session IDs are stable and chosen by OpenClaw.** Legacy Pi/Tau
+  session folders are deliberately ignored.
+
+**Primary-source reading**
+
+1. **Armin Ronacher — "Pi: The Minimal Agent Within OpenClaw"**
+   (Jan 31 2026). Read this first. The design philosophy is where the
+   real lessons live.
+   https://lucumr.pocoo.org/2026/1/31/pi/
+2. **OpenClaw Pi Integration Architecture** (official docs).
+   https://docs.openclaw.ai/pi · mirror:
+   https://github.com/openclaw/openclaw/blob/main/docs/pi.md
+3. **OpenClaw Agent Runtime concept docs** —
+   https://openclaw-ai.com/en/docs/concepts/agent
+
+**Deep-dives & guides**
+
+- **nader.substack: How to Build a Custom Agent Framework with Pi —
+  The Agent Stack Powering OpenClaw**. The clearest "build your own
+  with the same bones" article.
+  https://nader.substack.com/p/how-to-build-a-custom-agent-framework
+- **All Things Open: OpenClaw — Anatomy of a viral open-source AI
+  agent** (already cited in §12.1a).
+  https://allthingsopen.org/articles/openclaw-viral-open-source-ai-agent-architecture
+- **robotpaper.ai: Reference Architecture — OpenClaw (Feb 2026,
+  Opus 4.6)** — the best single architecture breakdown.
+  https://robotpaper.ai/reference-architecture-openclaw-early-feb-2026-edition-opus-4-6/
+- **Zylon: What Is OpenClaw? A Practical Guide to the Agent Harness
+  Behind the Hype**.
+  https://www.zylon.ai/resources/blog/what-is-openclaw-a-practical-guide-to-the-agent-harness-behind-the-hype
+- **knightli: OpenClaw and Agent Harness — Why It Looks Like AGI**
+  (April 2026). Enterprise framing.
+  https://www.knightli.com/en/2026/04/10/openclaw-agent-architecture-enterprise-ai/
+- **DeepWiki: Agent Harness Plugins** — `openclaw/docs` section 5.4.
+  https://deepwiki.com/openclaw/docs/5.4-agent-harness-plugins
+- **vallettasoftware: OpenClaw Architecture & Setup Guide (2026)**.
+  https://vallettasoftware.com/blog/post/openclaw-2026-guide
+- **Advith Aatreya (Medium): OpenClaw Models Explained (2026) —
+  Architecture, Safety & Use Cases**.
+  https://medium.com/@aatreyaadvith/openclaw-models-explained-2026-architecture-safety-use-cases-bdcfc1f3f8f4
+- **Raspberry Pi: Turn your Raspberry Pi into an AI agent with
+  OpenClaw** — delightfully concrete tutorial with the real SDK.
+  https://www.raspberrypi.com/news/turn-your-raspberry-pi-into-an-ai-agent-with-openclaw/
+- **pchojecki (Medium): How I turned a Raspberry Pi 4 into an AI
+  Agent with OpenClaw**.
+  https://pchojecki.medium.com/how-i-turned-a-raspberry-pi-4-into-an-ai-agent-with-openclaw-ba4f58d39f98
+
+**What to study specifically:** (1) the *Pi base* — 4-tools-and-a-
+system-prompt discipline; (2) how OpenClaw wraps Pi with messaging
+integrations and sandbox policies *without* modifying the core loop.
+This is the cleanest separation-of-concerns in the harness world.
+
+### 16.4 LangChain deepagents
+
+The best *library* representation of the four patterns (planning tool +
+subagents + filesystem + detailed prompt). Python, on LangGraph,
+readable end-to-end in ~1 day. See §12.1a + §14.1 for the primitives.
+
+**Primary facts worth memorizing**
+
+- **Library + CLI + ACP:** Deep Agents SDK (library), Deep Agents CLI
+  (terminal coding agent built on SDK), ACP integration (Agent Client
+  Protocol — e.g. Zed editor connector).
+- **Built-in tools:** `write_todos` (planning), virtual filesystem
+  (`ls`, `read_file`, `write_file`, `edit_file`), `execute` (sandbox
+  shell), `task` (subagent spawn).
+- **Seven-layer middleware** (covered in §12.1a): TodoList · Memory ·
+  Skills · Filesystem · SubAgent · Summarization · PatchToolCalls.
+- **Four filesystem backends:** StateBackend (ephemeral, per-run) ·
+  StoreBackend (persistent across threads via LangGraph Store) ·
+  FilesystemBackend (disk) · CompositeBackend (route per-path,
+  e.g. `/memories/` → Store, `/` → disk).
+- **Summarization trigger at 85% context** with argument truncation
+  first via `TruncateArgsSettings`; offloads older content to
+  `/conversation_history/{thread_id}.md`.
+- **`recursion_limit=1000`** for deep tool-call chains.
+- **When to use it (per official docs):** complex multi-step tasks
+  needing planning · large context needing filesystem mgmt · diverse
+  backends (in-memory/disk/sandbox) · subagent delegation · cross-
+  conversation memory · human-in-loop for sensitive ops. For simpler
+  agents, LangChain recommends stock `create_agent` or custom
+  LangGraph.
+
+**Primary-source reading**
+
+1. **Official Deep Agents Overview docs** —
+   https://docs.langchain.com/oss/python/deepagents/overview
+2. **GitHub README** — https://github.com/langchain-ai/deepagents
+3. **DeepWiki: Architecture Overview** —
+   https://deepwiki.com/langchain-ai/deepagents/1.3-architecture-overview
+4. **DeepWiki: Examples and Use Cases** —
+   https://deepwiki.com/langchain-ai/deepagents/8-examples-and-use-cases
+5. **LangChain landing page** —
+   https://www.langchain.com/deep-agents
+
+**LangChain blog posts (already cross-referenced in §14)**
+
+- Deep Agents (announcement) ·
+  Context Management for Deep Agents ·
+  How we build evals for Deep Agents ·
+  Evaluating Deep Agents: Our Learnings ·
+  Evaluating Deep Agents CLI on Terminal Bench 2.0 ·
+  Building Multi-Agent Applications with Deep Agents ·
+  Deep Agents Deploy (Claude Managed Agents alternative) ·
+  Improving Deep Agents with harness engineering (Top 30 → Top 5) ·
+  How Middleware Lets You Customize Your Agent Harness.
+
+**Tutorials & walkthroughs**
+
+- **DataCamp: LangChain's Deep Agents — A Guide With Demo Project**.
+  Best hands-on intro.
+  https://www.datacamp.com/tutorial/deep-agents
+- **Krish Naik substack: Building Deep Agents with LangChain — A
+  Complete Hands-On Tutorial**.
+  https://krishcnaik.substack.com/p/building-deep-agents-with-langchain
+- **Michiel Horstman (Medium): Deep Agents in LangChain — Building
+  the Next Generation of Autonomous AI Systems with LangGraph**.
+  https://michielh.medium.com/deep-agents-in-langchain-building-the-next-generation-of-autonomous-ai-systems-with-langgraph-3787b67e1805
+- **NVIDIA Technical Blog: How to Build Deep Agents for Enterprise
+  Search with NVIDIA AI-Q and LangChain**. Production case study.
+  https://developer.nvidia.com/blog/how-to-build-deep-agents-for-enterprise-search-with-nvidia-ai-q-and-langchain/
+
+**What to study specifically:** the middleware pattern itself.
+deepagents' strongest contribution is that the seven middleware layers
+*are* the harness — each one maps cleanly to a Claude Code / Hermes /
+Pi primitive. Reading them side-by-side is the fastest way to build a
+mental model of the design space.
+
+### 16.5 Cross-harness comparison — structured study
+
+A concrete exercise: make a table for each primitive below and fill
+each column by reading the relevant source. When you finish the table,
+you have internalized the harness design space.
+
+| Primitive | Claude Code | Hermes Agent | OpenClaw (Pi) | deepagents |
+|-----------|-------------|--------------|---------------|------------|
+| Loop location | `QueryEngine` | `AIAgent.run_conversation()` | `runEmbeddedPiAgent()` / Pi `AgentSession` | `create_deep_agent` → `CompiledStateGraph` |
+| Base tool count | 50+ (pluggable) | 47 across 19 toolsets | **4** (Read/Write/Edit/Bash) + OpenClaw add-ons | Planning + FS + `execute` + `task` |
+| Extensibility | MCP · Plugins · Skills · Hooks | Skills (context-injected) + Platform adapters | Agent writes its own extensions | Middleware + backends |
+| Permission model | Rules → tool `checkPermissions` → mode → prompt | Sandbox per backend | Sandbox policies at gateway | Declarative rules + interrupts |
+| Context compression | 5 layers + Session Memory file | `Memory manager` + `MEMORY.md` | Prompt-local only (minimal) | Auto at 85% + arg truncate |
+| Subagents | `AgentTool` w/ sidechain transcripts | Via skill scripts | Agent writes helpers | `SubAgentMiddleware` + `task` |
+| Memory storage | Append-only JSONL + CLAUDE.md hierarchy | SQLite + FTS5; `MEMORY.md`/`USER.md` | Session-scoped persistence | StateBackend / StoreBackend / FilesystemBackend / CompositeBackend |
+| Multi-surface | CLI + headless + SDK + IDE (one `queryLoop`) | CLI + Gateway + ACP → one `AIAgent` | Messaging (Telegram/Slack/Discord/WA) + CLI | Library + CLI + ACP |
+| License | Proprietary | MIT | MIT | MIT |
+| Language | TypeScript | Python | TypeScript | Python |
+
+### 16.6 Suggested harness study sequence
+
+1. **Read Ronacher's Pi post** (one sitting) — the clearest design-
+   philosophy statement in the field; sets a minimalist baseline.
+2. **Read deepagents official overview + DeepWiki architecture** —
+   Python, small, clean. Maps primitives to named middleware.
+3. **Read Zain Hasan's Inside Claude Code** — the five layers + tool
+   interface + permissions + five-layer compaction.
+4. **Read Anthropic's own harness-design post + arXiv:2604.14228** —
+   the why behind the what.
+5. **Read Inside Hermes Agent (Hecate, Medium) + official Hermes
+   architecture doc** — the skill-learning loop and memory pluggability.
+6. **Read OpenClaw's Pi integration doc + robotpaper.ai reference
+   architecture** — how a minimal core gets wrapped for a messaging OS.
+7. **Fill in the cross-harness comparison table (§16.5) from memory.**
+   If you can, you're done. If not, re-read the gaps.
+
+---
+
 ## Principles worth internalizing (cross-cutting)
 
 - The model is commodity. The harness, eval, and environment are the
