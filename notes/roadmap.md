@@ -114,6 +114,14 @@ phase ends with a *shippable portfolio artifact*, not a checkbox.
 generates. Add a KV cache; measure the speedup. The one "from-scratch
 LM" project you need.
 
+**Optional bolt-on — `sampling-dashboard` (weekend):**
+Gradio/Streamlit UI with live sliders for `temperature`, `top-k`,
+`top-p`, `min-p`, `repetition_penalty`, `logit_bias`. Render the
+probability distribution + entropy at each decoding step. Pays off
+twice: in Phase 5, rollout temperature directly controls GRPO
+reward variance; in the capstone, logit bias + structured sampling
+save you from hallucinated tool arguments.
+
 **Gate to Phase 2:** explain without notes: `argmax` vs `torch.max`,
 sampling strategies, KV cache contents, tensor shape
 `[batch, heads, seq, head_dim]`, prefill vs decode.
@@ -143,22 +151,42 @@ serving works" is disqualifying.
    understand LWS deployments, HPAs, and prefix-affinity routing.
    Don't try to master k8s; learn it through an LLM lens.
 
-**Build — `mini-serve` (one focused project, ~3 weeks):**
-A single-GPU inference engine that implements, in Python:
+**Build — `mini-serve` in two stages (~3 weeks total).**
+Minimal first, then extend. Mirrors the rest of the roadmap's
+approach and the genre of small readable reimplementations
+(nano-vLLM → Mini-SGLang → production SGLang).
+
+**Stage A — the nano-vLLM level (~1 week):**
 - a continuous batcher with an `asyncio.Queue` of requests;
 - a block-based KV cache (paged);
-- a simple radix-tree prefix cache;
 - an OpenAI-compatible `/v1/chat/completions` FastAPI endpoint with
-  SSE streaming, TTFT / inter-token-latency metrics, and cancellation;
-- a `Dockerfile` and a minimal Helm chart / `kubectl` YAML that
-  deploys it with an HPA on queue depth.
+  SSE streaming, TTFT / inter-token-latency metrics, cancellation;
+- a `Dockerfile` and a minimal Helm chart deploying it with an HPA
+  on queue depth.
 
-Reference: nano-vLLM (~1200 LOC), vLLM's `api_server.py`, llm-d.
+Reference: **nano-vLLM** (~1,200 LOC). End of Stage A, you have a
+working paged-attention engine.
 
-**Deliberately skipped:** CUDA/Triton, FlashAttention kernels,
-tensor/pipeline parallelism, MoE, speculative decoding kernels. Those
-are Lane B's deep stack. You can cite them; you don't need to build
-them.
+**Stage B — extend toward Mini-SGLang (~2 weeks):**
+- split the monolith into **four processes** (`api_server` /
+  `tokenizer` / `scheduler` / `detokenizer`) talking over ZeroMQ;
+- add a **radix-tree prefix cache** (RadixAttention);
+- add **chunked prefill** (Sarathi-Serve-style stall-free batching);
+- add **CUDA graphs** for the decode path.
+
+Reference: **Mini-SGLang** (~5k LOC Python, production-faithful).
+Diff-audit Stage B against it when you finish. End of Stage B, you
+have the modern-engine mental model: scheduler as separate actor,
+prefix reuse, chunked prefill, graph capture.
+
+**Why this engine pays off twice:** `mini-serve` is also your rollout
+engine in Phase 5. Throughput here directly caps GRPO training
+throughput — an honest Lane-A reason to care about serving perf.
+
+**Deliberately skipped:** CUDA/Triton kernel writing, FlashAttention
+internals, tensor/pipeline parallelism, MoE, speculative decoding
+kernels. Those are Lane B's deep stack. You can cite them; you don't
+need to build them.
 
 **Gate to Phase 3:** you can draw the request path through `mini-
 serve` on a whiteboard, state the bottleneck at each layer, and
@@ -277,29 +305,45 @@ Now touch model weights. Small, focused, the path to Level 4.
 
 **Read, in this order:**
 
-1. Sebastian Raschka — *Build a Reasoning Model (From Scratch)*.
-   Laptop-friendly. Inference-time scaling → RL → distillation. Do
-   the exercises.
+1. Sebastian Raschka — *Build a Reasoning Model (From Scratch)*,
+   paired with Cameron R. Wolfe — *Demystifying Reasoning Models*.
+   Do the book's exercises; use Wolfe for concept reinforcement.
 2. HF smol-course (SFT + DPO units). Run the notebooks.
 3. Nathan Lambert — *RLHF Book*. Textbook.
 4. DPO paper (Rafailov et al., 2023).
 5. DeepSeek-R1 paper.
 6. Tulu 3 report (AI2).
-7. Apple — *RL for Long-Horizon Interactive LLM Agents*
+7. Cameron R. Wolfe — *RL Scaling Laws for LLMs* + *GRPO++: Tricks
+   for Making RL Actually Work*. **Required before P5.** Vanilla
+   GRPO stalls without the variants (GSPO / DAPO / Dr. GRPO / TIS /
+   CISPO); this is where you learn which to reach for.
+8. Apple — *RL for Long-Horizon Interactive LLM Agents*
    (arXiv:2502.01600). LOOP; cleanest multi-turn agent RL paper.
-8. Agent-RLVR (arXiv:2506.11425) + DeepSWE.
+9. Agent-RLVR (arXiv:2506.11425) + DeepSWE.
 
 **Defer:** PPO (DPO subsumes what you need), HAAF, multi-agent RL
 surveys, everything else.
 
 **Build P4 — SFT + DPO on a small model (2 weeks).**
 SmolLM3 or Qwen3-0.6B. TRL. Write the loops yourself once; diff
-against TRL after.
+against TRL after. (Small-model choice is deliberate: under tight
+compute, learning efficiency saturates with size — you get more
+update steps at 0.6B than at 8B. See the Qwen 2.5 scaling paper
+covered in Wolfe's *RL Scaling Laws*.)
 
 **Build P5 — GRPO with a code-execution verifier (4 weeks).**
 Same loop pattern as DPO project; reward = unit-test pass fraction.
 Sandbox (seccomp or Docker). Train on a small problem set; target
 meaningful pass@1 lift.
+
+Three gotchas to plan for up front:
+- **TIS (Truncated Importance Sampling).** If your rollout engine
+  (vLLM / `mini-serve`) and training engine (HF) produce different
+  token probabilities, gradients silently degrade. TIS corrects it.
+- **Rollout count `G` is not fixed.** Start `G=8`; scale up on
+  harder prompts. Optimal allocation is difficulty-dependent.
+- **Pick one GRPO variant, not vanilla.** Dr. GRPO (bias-free) or
+  DAPO (asymmetric clip + dynamic sampling) are good defaults.
 
 **Build P6 — Capstone (~4 weeks):**
 
