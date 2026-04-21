@@ -4,424 +4,505 @@ A single top-down plan derived from the other notes in this directory.
 The other files are **reference material**; this is the path.
 
 **Target role:** Research Engineer / Member of Technical Staff at a
-frontier AI lab — concretely, the Anthropic "Research Engineer,
-Agents" (Agentic Systems team) JD. Equivalent openings exist at
-OpenAI, Google DeepMind, Meta FAIR, AI2, LangChain, Nous Research.
+frontier AI lab — primarily the Anthropic *Research Engineer, Agents*
+(Agentic Systems team) JD. Equivalent openings exist at OpenAI,
+Google DeepMind, Meta FAIR, AI2, LangChain, Nous Research, Sierra.
 
-**Starting assumption:** Senior Python backend engineer. Comfortable
-with distributed systems. New to LLM internals, training, and
-agent-specific work.
+**Starting assumption:** Senior Python backend engineer. **New to**
+LLM internals, inference systems, distributed / GPU systems, k8s,
+post-training, agents. Assumes strong SWE fundamentals; everything
+else is on the learning path.
 
 **Guiding principle:** *one engineer cannot learn everything at once.*
-Pick the narrowest path that lands the job. Everything outside that
-path is optional.
+Pick the narrowest path that lands the job. Every side quest is
+deferred.
 
 ---
 
-## 0. The top-down choice — pick a specialization first
+## 0. The top-down choice — pick a specialization, plus a shared base
 
-Frontier labs hire against *specializations*, not generalists. Before
-you start reading, pick one of these three lanes. They share ~30%
-common foundation; the top layer diverges.
+Frontier labs hire against *specializations*, not generalists — but in
+**2026, inference fluency is table stakes regardless of lane.** No one
+at a lab can ignore the decoding loop, KV cache, or serving economics.
 
-| Lane | Role shape | Reference JD | Primary lab targets |
-|------|------------|--------------|--------------------|
-| **A. Agents / Post-training** | Build harnesses, design evals, train reasoning/agent models with RL. | Anthropic Research Engineer, Agents | Anthropic, OpenAI (Agents), DeepMind (agents), LangChain, Nous, Sierra |
-| **B. Inference systems** | Scheduler, KV cache, kernels, multi-host serving. | Anthropic/OpenAI Inference Engineer | Anthropic, OpenAI, NVIDIA, Together, Fireworks |
-| **C. Training infra / pre-training** | Parallelism, mega-cluster reliability, checkpointing. | OpenAI Training Engineer | OpenAI, Anthropic, DeepMind, xAI |
+Three lanes, shared foundations:
 
-The user in this repo has been building toward **Lane A** (agents).
-This roadmap is written for Lane A. The appendix has a pointer to
-switch to B or C without starting over.
+| Lane | Role shape | Reference JD |
+|------|------------|--------------|
+| **A. Agents / Post-training** | Harnesses, evals, RL on LMs. | Anthropic Research Engineer, Agents |
+| **B. Inference systems** | Scheduler, KV cache, kernels, multi-host serving, k8s. | Anthropic/OpenAI Inference Engineer; NVIDIA; Together; Fireworks |
+| **C. Training infra / pre-training** | Parallelism, mega-cluster reliability. | OpenAI Training Engineer |
+
+**This roadmap targets Lane A** (agents) — but weaves in enough of
+Lane B that the engineer can hold a conversation about serving in a
+Lane-A interview, *and* switch to a Lane-B offer if one lands first.
+Lane C is deferred to the appendix.
 
 ---
 
-## 1. The top-down map — what a Lane-A engineer actually does
-
-At a lab, an agents engineer's job is some mix of the following. Your
-year-long plan must produce evidence that you can do *each* of them.
+## 1. The ladder — what the job actually looks like
 
 ```
-             ┌───────────────────────────────────────────────┐
-             │    Level 4  —  Frontier agent research        │
-             │  (Novel harness, novel eval, novel training)  │
-             └───────────────────────────────────────────────┘
-                              ▲
-             ┌───────────────────────────────────────────────┐
-             │       Level 3  —  Training loops on LMs       │
-             │  (SFT → DPO → GRPO → RLVR on real tasks)      │
-             └───────────────────────────────────────────────┘
-                              ▲
-             ┌───────────────────────────────────────────────┐
-             │    Level 2  —  Agent harness + evals          │
-             │  (Loop, tools, memory, context, benchmarks)   │
-             └───────────────────────────────────────────────┘
-                              ▲
-             ┌───────────────────────────────────────────────┐
-             │    Level 1  —  LLM foundations & internals    │
-             │  (Transformer, sampling, PyTorch, KV basics)  │
-             └───────────────────────────────────────────────┘
+             ┌──────────────────────────────────────────────────┐
+             │    Level 5  —  Frontier agent research           │
+             │  (Novel harness, novel eval, novel training)     │
+             └──────────────────────────────────────────────────┘
+                               ▲
+             ┌──────────────────────────────────────────────────┐
+             │    Level 4  —  Train models inside your harness  │
+             │  (SFT → DPO → GRPO → RLVR on real tasks)         │
+             └──────────────────────────────────────────────────┘
+                               ▲
+             ┌──────────────────────────────────────────────────┐
+             │    Level 3  —  Products on top of your harness   │
+             │  (Pi→OpenClaw, DeepAgents→OpenSWE, SDK→Code)     │
+             └──────────────────────────────────────────────────┘
+                               ▲
+             ┌──────────────────────────────────────────────────┐
+             │    Level 2  —  Agent harness & eval discipline   │
+             │  (Loop, tools, memory, context, benchmarks)      │
+             └──────────────────────────────────────────────────┘
+                               ▲
+             ┌──────────────────────────────────────────────────┐
+             │    Level 1  —  LLM + inference foundations       │
+             │  (Transformer, sampling, KV cache, batching, k8s)│
+             └──────────────────────────────────────────────────┘
 ```
 
-You learn **top-down** (understand what L4 looks like before grinding
-L1) but you build **bottom-up** (can't ship L3 without L1/L2
-primitives).
+You learn **top-down** (understand Level 5 before grinding Level 1)
+but you build **bottom-up** (can't ship Level 4 without Level 1–3).
+
+### The Level-3 framing (the user's insight, load-bearing)
+
+Harnesses don't matter in the abstract; they matter because of what
+you ship on them.
+
+| Harness (runtime / library) | Product(s) built on it |
+|------------------------------|------------------------|
+| **Pi / pi-mono** (4 tools, minimal) | OpenClaw · Pi Coding Agent |
+| **deepagents** (LangGraph middleware) | OpenSWE · Deep Research clones · enterprise search agents |
+| **Claude Agent SDK** | Claude Code · Claude Cowork · SDK Demos |
+| **Hermes Agent** | Personal self-improving agent with platform adapters |
+
+**The discipline for the portfolio:** build **one** minimal harness,
+then build **one** real product on top. That's the demonstration a
+hiring manager actually wants — that you can both design the runtime
+and use it for something specific.
 
 ---
 
-## 2. The year in four phases
+## 2. The year in six phases
 
 ~40 weeks part-time (10–15 hrs/week) or ~20 weeks full-time. Each
-phase ends with a *shippable portfolio artifact*, not a checkbox of
-readings.
+phase ends with a *shippable portfolio artifact*, not a checkbox.
 
-### Phase 1 (weeks 1–4) — Foundations: stop guessing at LLM internals
+### Phase 1 (weeks 1–4) — LLM foundations: stop guessing at internals
 
-**Read (pick, don't grind):**
+**Read (narrow list):**
 
-1. Vaswani — *Attention Is All You Need* — once, for notation.
+1. Vaswani — *Attention Is All You Need*. Once, for notation.
 2. Jay Alammar — *The Illustrated Transformer*.
-3. Sebastian Raschka — *Build a Large Language Model (From Scratch)*,
-   chs 1–4. Or nanoGPT if you prefer terse code.
+3. Sebastian Raschka — *Build an LLM from Scratch*, chs 1–4 (or
+   nanoGPT if you prefer terse code).
 4. Horace He — *Making Deep Learning Go Brrrr from First Principles*.
-   Compute vs. memory-bandwidth vs. overhead — the only mental model
-   you need for serving and training cost.
-5. Lilian Weng — *Large Transformer Model Inference Optimization*
-   (Jan 2023). High signal; read once.
+   Compute vs memory-bandwidth vs overhead. The only mental model you
+   need for reasoning about cost later.
+5. Lilian Weng — *LLM Inference Optimization* (Jan 2023).
 
-**Skip / defer:** CS336 full course, FlashAttention papers, all of
-`study-guide.md` beyond items 1–5. They're for Lane B.
+**Build — `lm-from-scratch` (weekend):**
+~200-line PyTorch transformer that trains on TinyStories and
+generates. Add a KV cache; measure the speedup. The one "from-scratch
+LM" project you need.
 
-**Build — `lm-from-scratch` (weekend project):**
-A ~200-line PyTorch transformer that trains on TinyStories and
-generates. Add a KV cache and measure the speedup. This is the only
-"from-scratch LM" code you need. Reference: karpathy/nanoGPT.
-
-**Artifact:** GitHub repo with a README explaining prefill vs. decode,
-KV cache math, and your measured numbers.
-
-**Gate to Phase 2:** you can explain, without notes, what `argmax` vs.
-`torch.max` returns, what "sampling" means, what a KV cache stores,
-and what `[batch, heads, seq, head_dim]` means.
+**Gate to Phase 2:** explain without notes: `argmax` vs `torch.max`,
+sampling strategies, KV cache contents, tensor shape
+`[batch, heads, seq, head_dim]`, prefill vs decode.
 
 ---
 
-### Phase 2 (weeks 5–14) — Agent harness & evals: the Lane-A core
+### Phase 2 (weeks 5–8) — Inference & serving: the 2026 table stakes
 
-This is the heart of Lane A. The JD is literally *"novel harness
-design, custom evals, memory and context engineering."* Ship these
-and you have 70% of what you need.
+**Why this is mandatory now:** every 2026 frontier-lab engineer, Lane
+A included, must understand scheduling, KV cache, and the k8s
+surface an inference stack runs on. Lane-A interviews *will* ask how
+you'd instrument latency of an agentic rollout; "I don't know how
+serving works" is disqualifying.
+
+**Read (the 30%-of-Lane-B-material you actually need):**
+
+1. *Orca* (OSDI 2022) — continuous batching, the foundational
+   scheduling idea.
+2. Anyscale — *How continuous batching enables 23× throughput in LLM
+   inference*. Engineer-friendly explainer.
+3. *PagedAttention* / vLLM paper (SOSP 2023). KV as virtual memory.
+4. *SGLang + RadixAttention* (2024). Prefix caching.
+5. *Sarathi-Serve* (OSDI 2024) — chunked prefill.
+6. *DistServe* (OSDI 2024) — prefill/decode disaggregation.
+7. `inference-serving-taxonomy.md` in this repo. Pin it open.
+8. For k8s: `k8s-ramp.md` in this repo — the minimal path to
+   understand LWS deployments, HPAs, and prefix-affinity routing.
+   Don't try to master k8s; learn it through an LLM lens.
+
+**Build — `mini-serve` (one focused project, ~3 weeks):**
+A single-GPU inference engine that implements, in Python:
+- a continuous batcher with an `asyncio.Queue` of requests;
+- a block-based KV cache (paged);
+- a simple radix-tree prefix cache;
+- an OpenAI-compatible `/v1/chat/completions` FastAPI endpoint with
+  SSE streaming, TTFT / inter-token-latency metrics, and cancellation;
+- a `Dockerfile` and a minimal Helm chart / `kubectl` YAML that
+  deploys it with an HPA on queue depth.
+
+Reference: nano-vLLM (~1200 LOC), vLLM's `api_server.py`, llm-d.
+
+**Deliberately skipped:** CUDA/Triton, FlashAttention kernels,
+tensor/pipeline parallelism, MoE, speculative decoding kernels. Those
+are Lane B's deep stack. You can cite them; you don't need to build
+them.
+
+**Gate to Phase 3:** you can draw the request path through `mini-
+serve` on a whiteboard, state the bottleneck at each layer, and
+explain what k8s objects your service depends on.
+
+---
+
+### Phase 3 (weeks 9–20) — One harness + one product on top
+
+**The core Lane-A phase.** Two projects, tightly coupled. The
+discipline is Pi→OpenClaw: a minimal runtime, then a real product
+that uses it.
 
 **Read, in this order:**
 
 1. Anthropic — *Harness design for long-running application
    development*. Primary source from the team hiring for this role.
 2. Armin Ronacher — *Pi: The Minimal Agent Within OpenClaw*. Clearest
-   design-philosophy statement in the field; anchors minimalism.
+   design-philosophy statement in the field.
 3. LangChain — *The Anatomy of an Agent Harness*
    (`Agent = Model + Harness`) + *Deep Agents* + *Context Management
    for Deep Agents* + *Choosing the Right Multi-Agent Architecture*.
-4. *Dive into Claude Code* (arXiv:2604.14228) — the design-space
-   paper. Skim, then deep-dive the sections on the 5-layer compaction
-   and 4-gate permission cascade.
-5. Zain Hasan — *Inside Claude Code: An Architecture Deep Dive*. The
-   most engineer-friendly walkthrough of Claude Code.
+4. *Dive into Claude Code* (arXiv:2604.14228) — design space. Skim,
+   then deep-dive 5-layer compaction + 4-gate permission cascade.
+5. Zain Hasan — *Inside Claude Code: An Architecture Deep Dive*.
 6. Epsilla — *12 Reusable Agentic Harness Design Patterns from Claude
    Code*.
-7. Hamel Husain — *LLM Evals FAQ*. Your eval bible. Read in one sitting.
-8. UIUC Kang Lab — *Agentic Benchmark Checklist* + Berkeley RDI —
-   *How We Broke Top AI Agent Benchmarks*. If you skip these, your
-   benchmarks will be exploitable.
-9. From Storage to Experience — *Memory Mechanisms Survey* (2026),
-   skim chapter on context engineering.
+7. Hermes Agent architecture doc (Nous Research).
 
-**Study one codebase end-to-end:**
-**langchain-ai/deepagents** (Python, readable in a day). Read all 7
-middleware modules: TodoList · Memory · Skills · Filesystem ·
-SubAgent · Summarization · PatchToolCalls. This is your mental
-model scaffold; every other harness maps onto these primitives.
+**Study one codebase end-to-end:** **langchain-ai/deepagents**
+(Python, readable in a day). All 7 middleware modules. Every other
+harness maps onto these primitives; this is your scaffold.
 
-**Build — four projects, ~8 weeks total:**
+**Build P1 — `harness` (4 weeks):**
+One repo. A minimal, opinionated harness that includes:
+- a single `loop()` that can serve CLI, HTTP, and SDK surfaces;
+- 4 base tools (read/write/edit/bash);
+- 4-gate permission cascade (rules → tool `check_permissions` → mode
+  → user prompt);
+- filesystem-as-memory with `AGENTS.md` loader;
+- 5-stage compaction pipeline (budget → snip → microcompact →
+  collapse → autocompact);
+- subagents with isolated context + sidechain transcripts;
+- 8 lifecycle hooks (PreToolUse, PostToolUse, PreModelCall, …);
+- MCP client + one MCP server for one of your tools.
 
-- **P1. Minimal Pi-style harness (1 week).** Loop + 4 tools
-  (read/write/edit/bash). <500 lines. Single file if you can.
-  Reference: openclaw/pi-mono.
-- **P2. Permission cascade + filesystem-as-memory + compaction
-  (2 weeks).** Bolt onto P1: 4-gate permission (rules → tool check →
-  mode → prompt), `AGENTS.md` loader, 5-stage compaction pipeline.
-  Reference: Claude Code design space paper.
-- **P3. Subagents + MCP + lifecycle hooks (2 weeks).** Add
-  `spawn_subagent()` with isolated context + sidechain transcripts.
-  Expose 3 of your tools as MCP servers. 8 lifecycle hooks.
-  Reference: deepagents' SubAgent + PatchToolCalls middleware.
-- **P4. Eval pipeline on P3 (3 weeks).** Run the **full Hamel
-  workflow** on your own agent: 100 traces → open code → axial code
-  → quantify → validated LLM-as-judge with TPR/TNR >80%. Then
-  adversarially probe your own eval using the 7 RDI vulnerability
-  categories.
+Target: <1,500 lines Python, reads like a textbook, published as a
+library with an `ARCHITECTURE.md` and a one-line `install_my_harness`.
+Diff-audit against deepagents.
 
-**Artifacts:** one repo per project. For P4, publish the failure
-taxonomy, the TPR/TNR numbers, and the adversarial probe results.
-This is the artifact that actually gets you interviews.
+**Build P2 — one real product on top of `harness` (4 weeks):**
+Pick **one**. These mirror the shipped examples above:
 
-**Gate to Phase 3:** you can fill in the cross-harness comparison
-table (Claude Code / Hermes / OpenClaw-Pi / deepagents across ~10
-primitives) from memory.
+| Model | Your version | Scope |
+|-------|--------------|-------|
+| OpenSWE on deepagents | **`coding-agent`** — SWE-agent-style ACI on your harness, evaluated on 20 SWE-bench-Verified tasks. | Small, measurable. |
+| Claude Code on SDK | **`terminal-coder`** — terminal CLI with your harness, project-scoped `AGENTS.md`, permission prompts. | Product polish. |
+| Deep Research clone | **`research-agent`** — planner + parallel subagents + synthesizer on a narrow domain (arXiv papers in one sub-field). | Multi-agent pattern. |
+| Cleric-style SRE | **`on-call-agent`** — agent watching one GitHub repo + Slack channel, proposes PRs, with skill accretion. | Ambient pattern. |
+
+Recommendation: **`coding-agent`** — most legible to hiring managers,
+direct line to SWE-bench numbers in interviews.
+
+**Artifacts from Phase 3:** two repos — the harness library and the
+product — each with a ≤2,500-word blog post explaining architecture
+and one measured number.
+
+**Gate to Phase 4:** you can fill the cross-harness comparison table
+(Claude Code / Hermes / Pi / deepagents across ~10 primitives) from
+memory, and you've used your own harness to build something that
+works end-to-end.
 
 ---
 
-### Phase 3 (weeks 15–26) — Post-training: SFT, DPO, GRPO, RLVR
+### Phase 4 (weeks 21–24) — Eval discipline
 
-Now the model-touching layer. Lane A needs this to *train* agents, not
-just orchestrate them.
+**This is the single most under-built skill in the field.** Evals are
+what separate research engineers from app devs in interviews.
+
+**Read:**
+
+1. Hamel Husain — *LLM Evals FAQ*. Your eval bible; one sitting.
+2. LangChain — *Agent Evaluation Readiness Checklist*.
+3. LangChain — *How We Build Evals for Deep Agents*.
+4. UIUC Kang Lab — *Agentic Benchmark Checklist* (arXiv:2507.02825).
+5. Berkeley RDI — *How We Broke Top AI Agent Benchmarks*. 7
+   vulnerability categories.
+6. LangChain — *You Don't Know What Your Agent Will Do Until It's in
+   Production*.
+
+**Build P3 — `eval-suite` on top of P2 (3 weeks):**
+
+Apply the **full Hamel workflow** to your product from Phase 3:
+
+1. Collect 100 real traces from `coding-agent` (or chosen P2).
+2. Open-code 50 — failure taxonomy.
+3. Quantify: transition matrix of last-success → first-failure.
+4. Build one validated LLM-as-judge (100 hand-labels, TPR/TNR > 80%
+   on held-out).
+5. Run the RDI adversarial probes against your own eval. Fix what
+   breaks.
+6. Pass the UIUC Agentic Benchmark Checklist on your task/outcome
+   validity.
+
+**Artifact:** a public blog post titled "We ran [Anthropic/Berkeley's
+eval] on our own agent — here's what we learned." Include the failure
+taxonomy, the judge TPR/TNR, and the adversarial probe table.
+
+This artifact is the one that actually gets you interviews.
+
+---
+
+### Phase 5 (weeks 25–36) — Post-training: models trained inside your harness
+
+Now touch model weights. Small, focused, the path to Level 4.
 
 **Read, in this order:**
 
 1. Sebastian Raschka — *Build a Reasoning Model (From Scratch)*.
-   Laptop-friendly. Inference-time scaling → RL training →
-   distillation. Do the exercises.
-2. HF smol-course (SFT + DPO units). Actually run the notebooks.
-3. Nathan Lambert — *RLHF Book* (free PDF). The textbook.
-4. DPO paper (Rafailov et al., 2023). One read.
-5. DeepSeek-R1 paper. The GRPO reference.
-6. Tulu 3 report (AI2). The closest thing to a production recipe
-   with data + code + weights all open.
+   Laptop-friendly. Inference-time scaling → RL → distillation. Do
+   the exercises.
+2. HF smol-course (SFT + DPO units). Run the notebooks.
+3. Nathan Lambert — *RLHF Book*. Textbook.
+4. DPO paper (Rafailov et al., 2023).
+5. DeepSeek-R1 paper.
+6. Tulu 3 report (AI2).
 7. Apple — *RL for Long-Horizon Interactive LLM Agents*
-   (arXiv:2502.01600). LOOP; the cleanest multi-turn agent RL paper.
-8. Agent-RLVR (arXiv:2506.11425) + DeepSWE. Where verifiable rewards
-   meet SWE-bench.
+   (arXiv:2502.01600). LOOP; cleanest multi-turn agent RL paper.
+8. Agent-RLVR (arXiv:2506.11425) + DeepSWE.
 
-**Skip for now:** PPO (DPO subsumes most of what you need); HAAF;
-most multi-agent surveys; everything else in `post-training-and-
-agents.md` §9–§16 that isn't DeepSeek-R1 or LOOP. You'll come back
-to it later.
+**Defer:** PPO (DPO subsumes what you need), HAAF, multi-agent RL
+surveys, everything else.
 
-**Build — three projects, ~12 weeks:**
+**Build P4 — SFT + DPO on a small model (2 weeks).**
+SmolLM3 or Qwen3-0.6B. TRL. Write the loops yourself once; diff
+against TRL after.
 
-- **P5. SFT + DPO on a small model (2 weeks).** SmolLM3 or
-  Qwen3-0.6B. Use TRL. Write the loops yourself the first time, then
-  diff against TRL. Target: a chat-tuned model that holds a
-  conversation.
-- **P6. Tiny GRPO with a synthetic verifier (2 weeks).** Task:
-  "output must parse as JSON matching this schema." G=8, β=0.04, no
-  critic. Run on a single GPU. Track KL, reward, group variance.
-  Reference: `trl/trainer/grpo_trainer.py`.
-- **P7. Replace verifier with code execution (4 weeks).** Same loop
-  as P6; reward = fraction of unit tests passing on model-emitted
-  code. Sandbox properly (seccomp or Docker). Train on a small
-  problem set. Target: meaningful pass@1 lift over the base model.
-  This is the actual RLVR skill.
+**Build P5 — GRPO with a code-execution verifier (4 weeks).**
+Same loop pattern as DPO project; reward = unit-test pass fraction.
+Sandbox (seccomp or Docker). Train on a small problem set; target
+meaningful pass@1 lift.
 
-**Capstone project for the phase (P8, 4 weeks) — post-train your own
-agent:**
-Pick the language-learning agent project (the dedicated note
-`language-learning-agent-project.md`): target Kalamang (MTOB), wire
-your harness from Phase 2 into a GRPO loop with chrF + back-
-translation reward. Agent Skills folders for dictionary, morphology,
-grammar, examples.
+**Build P6 — Capstone (~4 weeks):**
 
-This capstone is the single most important artifact in the whole
-roadmap. It maps 1:1 onto the Anthropic JD:
-- *"Large-scale RL on language models"* — ✅ you did it.
-- *"Novel harness design"* — ✅ your Phase-2 harness.
-- *"Rigorous quantitative benchmarks"* — ✅ MTOB + your ablations.
+Take your **`harness`** (P1) + your **`eval-suite`** (P3) + your
+GRPO loop (P5). Use them to train a small reasoning agent. The
+dedicated note `language-learning-agent-project.md` contains the
+full plan: target Kalamang (MTOB), wire Agent Skills (dictionary,
+morphology, grammar, examples) into your harness, reward = chrF +
+back-translation. This is the single highest-leverage artifact in
+the whole roadmap.
+
+Why this capstone: it ties together *every level of the ladder*. It
+maps 1:1 onto the Anthropic JD:
+- *"Large-scale RL on language models"* — P5 + P6.
+- *"Novel harness design"* — P1.
+- *"Rigorous quantitative benchmarks"* — P3 + MTOB.
 - *"Memory, context engineering, agent-to-agent communication"* —
-  ✅ Agent Skills as durable memory.
+  Agent Skills as durable memory on your harness.
 
-**Gate to Phase 4:** you have trained a model with RL whose reward
-came from tool execution, and you can explain every hyperparameter.
+Budget-dependent: one A100/H100 for 3–5 days is enough.
 
 ---
 
-### Phase 4 (weeks 27–40) — Polish, write, ship, interview
+### Phase 6 (weeks 37–40) — Polish, write, ship, apply
 
-You don't need more projects. You need to make the ones you have
-*legible*.
+You don't need more projects. You need legibility.
 
 **Write:**
-- One **blog post** per project P2, P4, P7, P8. Each <2,500 words,
-  with a graph and a code snippet. Publish on your own domain.
-- One **arXiv-style writeup** for P8 if the numbers are interesting,
-  even if unpublished. Title, abstract, method, results, ablations.
-- Update your **GitHub** bios and READMEs so each repo states the
-  one-sentence research claim.
+- Blog post per project (P1, P2, P3, P5, P6). <2,500 words, one graph,
+  one code snippet.
+- An arXiv-style writeup for P6 if the numbers warrant, even if
+  unpublished. Title/abstract/method/results/ablations.
+- GitHub READMEs: each repo states the one-sentence research claim up
+  top.
 
-**Read (interview-adjacent):**
-- Chip Huyen — *AI Engineering* (relevant chapters: evals,
-  observability, cost). Skim.
-- *Agent Engineering: A New Discipline* (LangChain).
-- *Agent Evaluation Readiness Checklist* (LangChain).
-- A couple of LangChain customer case studies (Cleric SRE, Kensho
-  financial data, Exa) — you'll be asked production-grounding
-  questions.
+**Read (interview-adjacent, light):**
+- Chip Huyen — *AI Engineering*, evals + observability chapters.
+- LangChain — *Agent Engineering: A New Discipline*.
+- Your target lab's 3 most recent papers + 2 most recent engineering
+  blog posts. Reference them in cover letters.
 
-**Contribute (optional, high-leverage if you can):**
-- One merged PR to **TRL**, **deepagents**, or **Inspect AI** in the
-  area you built in. Even a small one — it shows you can land code in
-  someone else's codebase.
+**Contribute (high-leverage if you can):**
+One merged PR to **TRL**, **deepagents**, or **Inspect AI** in the
+area you built. Even small — shows you can land code in someone
+else's repo.
 
 **Interview prep:**
-- Do 5 live post-training / agent-design whiteboards with a peer.
-  Pattern: "design an eval for X," "how would you add memory to Y,"
-  "explain GRPO on a whiteboard."
-- For every lab you apply to, read that lab's most recent 3 papers
-  and their most recent engineering blog posts. Reference them in
-  your cover letter.
+- 5 live whiteboards with a peer: "design an eval for X," "add memory
+  to Y," "explain GRPO."
+- A one-page narrative: the year, in sequence, each project one line.
 
 **Apply:**
-- 5–10 labs, batched. Cover letter has 3 sentences: who you are, what
-  you built (one artifact per lab, matched to their JD), why them.
-- If rejected early, request async feedback; use it to refine the
-  portfolio.
+- 5–10 labs, batched. Cover letter: who you are, what you built
+  (one artifact per lab matched to the JD), why them.
 
 ---
 
-## 3. Priorities — what to cut when time gets short
+## 3. Priorities — what to cut when time runs short
 
-If you lose half your time, cut in this order:
+Cut order (first cut first):
 
-1. **First cut:** the inference/serving stack. Lane B material. You
-   can cite it in interviews without building it. Skip `buildable-
-   projects.md` items 7–15.
-2. **Second cut:** Phase 4 contributions. A blog post is worth more
-   than an unmerged PR.
-3. **Third cut:** Phase 3's SFT project (P5) *if and only if* you
-   have a chat-tuned open model you can build on. DPO+GRPO are the
-   load-bearing pieces.
-4. **Never cut:** Phase 2 P4 (evals). This is what separates
-   research engineers from app devs in interviews.
+1. **First cut:** Phase 6 contributions. A blog post beats an
+   unmerged PR.
+2. **Second cut:** `mini-serve`'s k8s layer. Keep the engine; skip
+   the Helm chart. You can still speak to it.
+3. **Third cut:** Phase 5's SFT/DPO project (P4) *if and only if*
+   you can start from an open chat-tuned model. GRPO is load-bearing.
+4. **Never cut:**
+   - Phase 3's P1 (harness) + P2 (product on top). Shows design range.
+   - Phase 4 P3 (evals). This is what separates research engineers.
+   - Phase 5 P6 (capstone). The single artifact that sells the whole
+     year.
 
-What to *double down* on if you have slack:
-
-- Another **capstone-scale** project beyond P8. The single strongest
-  signal to a hiring manager is two projects with real results, not
-  one.
-- Reading **two more agent codebases** end-to-end. After deepagents,
-  add claude-agent-sdk-python and Hermes Agent. Write a 1,500-word
-  architectural comparison. Post it publicly. It will get attention.
+Slack? Double down here (in order):
+- A second Phase-3 product on the same harness. If your harness can
+  host two different products, that's a library, not a demo.
+- Read two more harness codebases end-to-end (claude-agent-sdk-python
+  + Hermes Agent); publish a 1,500-word architecture comparison.
+- A stretched version of P6 — add continual learning via skill-file
+  accretion, or a second language (Manchu).
 
 ---
 
-## 4. The canonical reading list (40 items max)
+## 4. The canonical reading list (~40 items)
 
-Everything else in the other notes is *reference*. If you only read
-these, you're prepared.
+Everything in the other notes is *reference*. This list is the
+curriculum.
 
-**Foundations (5):**
+**LLM + inference foundations (10):**
 1. Vaswani — Attention Is All You Need
 2. Alammar — Illustrated Transformer
 3. Raschka — Build an LLM from Scratch (chs 1–4)
 4. Horace He — Making DL Go Brrrr
-5. Lilian Weng — LLM Inference Optimization survey
+5. Weng — LLM Inference Optimization
+6. Orca (OSDI 2022) — continuous batching
+7. Anyscale — Continuous Batching 23× post
+8. PagedAttention / vLLM (SOSP 2023)
+9. SGLang + RadixAttention (2024)
+10. Sarathi-Serve (OSDI 2024) + DistServe (OSDI 2024)
 
 **Harness & agents (10):**
-6. Anthropic — Harness design for long-running apps
-7. Ronacher — Pi: The Minimal Agent
-8. LangChain — The Anatomy of an Agent Harness
-9. LangChain — Deep Agents
-10. LangChain — Context Management for Deep Agents
-11. LangChain — Choosing the Right Multi-Agent Architecture
-12. arXiv:2604.14228 — Dive into Claude Code (design space)
-13. Zain Hasan — Inside Claude Code
-14. Epsilla — 12 Reusable Harness Patterns
-15. Hermes Agent architecture doc (Nous Research)
+11. Anthropic — Harness design for long-running apps
+12. Ronacher — Pi: The Minimal Agent
+13. LangChain — The Anatomy of an Agent Harness
+14. LangChain — Deep Agents + Context Management for Deep Agents
+15. LangChain — Choosing the Right Multi-Agent Architecture
+16. arXiv:2604.14228 — Dive into Claude Code
+17. Zain Hasan — Inside Claude Code
+18. Epsilla — 12 Reusable Harness Patterns
+19. Hermes Agent architecture doc
+20. Lee Han Chung — Taxonomy of RL Environments for LLM Agents
 
 **Evals (5):**
-16. Hamel Husain — LLM Evals FAQ
-17. LangChain — Agent Evaluation Readiness Checklist
-18. LangChain — How We Build Evals for Deep Agents
-19. Berkeley RDI — How We Broke Top AI Agent Benchmarks
-20. UIUC Kang Lab — Agentic Benchmark Checklist paper
+21. Hamel Husain — LLM Evals FAQ
+22. LangChain — Agent Evaluation Readiness Checklist
+23. LangChain — How We Build Evals for Deep Agents
+24. Berkeley RDI — How We Broke Top AI Agent Benchmarks
+25. UIUC Kang Lab — Agentic Benchmark Checklist paper
 
 **Post-training (10):**
-21. Raschka — Build a Reasoning Model from Scratch (book)
-22. HF smol-course (SFT + DPO units)
-23. Lambert — RLHF Book
-24. InstructGPT paper
-25. DPO paper (Rafailov et al.)
-26. DeepSeek-R1 paper
-27. Tulu 3 report
-28. Apple LOOP (arXiv:2502.01600)
-29. Agent-RLVR (arXiv:2506.11425)
-30. DeepSWE writeup (Together AI)
+26. Raschka — Build a Reasoning Model from Scratch
+27. HF smol-course (SFT + DPO units)
+28. Lambert — RLHF Book
+29. InstructGPT paper
+30. DPO paper (Rafailov et al.)
+31. DeepSeek-R1 paper
+32. Tulu 3 report
+33. Apple LOOP (arXiv:2502.01600)
+34. Agent-RLVR (arXiv:2506.11425)
+35. DeepSWE writeup
 
-**Memory, context, continual (5):**
-31. Karpathy note — Context Engineering (via Weaviate/LC summaries)
-32. From Storage to Experience (memory survey, 2026)
-33. A-Mem paper (arXiv:2502.12110)
-34. LangChain — Continual Learning for AI Agents
-35. Lifelong Learning of LLM Agents roadmap (TPAMI)
-
-**Production context (5):**
+**Production & target-lab context (5):**
 36. LangChain — You Don't Know What Your Agent Will Do Until Prod
 37. Phil Schmid — How Kimi/Cursor/Chroma Train Agentic Models with RL
-38. Lee Han Chung — A Taxonomy of RL Environments for LLM Agents
-39. Chip Huyen — AI Engineering (eval + observability chapters)
-40. Your target lab's 3 most recent papers + engineering blog posts
+38. LangChain — Agent Engineering: A New Discipline
+39. Chip Huyen — AI Engineering (evals + observability chapters)
+40. Your target lab's 3 most recent papers + eng blog posts
 
 ---
 
-## 5. The projects list (8 items)
+## 5. The projects list (6 items)
 
 In order, with effort budgets. Do them all.
 
-1. **P1 — Minimal Pi-style harness** (1 wk)
-2. **P2 — Permissions + FS-as-memory + 5-stage compaction** (2 wk)
-3. **P3 — Subagents + MCP + hooks** (2 wk)
-4. **P4 — Full Hamel-workflow eval + RDI adversarial probes** (3 wk)
-5. **P5 — SFT + DPO on a small model** (2 wk)
-6. **P6 — GRPO with a JSON verifier** (2 wk)
-7. **P7 — GRPO with a code-execution verifier** (4 wk)
-8. **P8 — Language-learning agent (capstone)** (4 wk)
+1. **`lm-from-scratch`** — 200-line transformer + KV cache. (weekend)
+2. **`mini-serve`** — continuous batch + paged KV + radix cache +
+   OpenAI-compat FastAPI + k8s deploy. (3 weeks)
+3. **`harness`** — minimal agent runtime (loop, 4 tools, permission
+   cascade, FS-as-memory, compaction, subagents, MCP, hooks). (4 weeks)
+4. **`product-on-harness`** — one real product built on `harness`
+   (recommend `coding-agent` on SWE-bench subset). (4 weeks)
+5. **`eval-suite`** — Hamel workflow + validated LLM-as-judge +
+   RDI adversarial probes on your product. (3 weeks)
+6. **Capstone — `language-learning-agent`** — SFT + GRPO + code-exec
+   verifier loop → MTOB/Kalamang with Agent Skills on your harness.
+   (8 weeks, combines P4 SFT/DPO + P5 GRPO + P6 capstone from the
+   earlier plan)
 
-**What "done" means for any project:**
-1. You can explain every file you wrote without opening it.
+**"Done" for any project:**
+1. You can explain every file without opening it.
 2. You can rebuild the core primitive from scratch in a day.
-3. You can name 3 design decisions you made that differ from the
-   reference implementation, and why.
+3. You can name 3 design decisions that differ from the reference
+   implementation, and why.
+
 If not all three: redo it.
 
 ---
 
 ## 6. What this roadmap explicitly does NOT cover
 
-Deliberately cut to make the path tractable. Revisit later if needed.
+Deliberately cut to keep the path tractable:
 
-- **K8s / inference serving** (the content of `study-guide.md`,
-  `buildable-projects.md`, `inference-serving-*.md`, `k8s-ramp.md`).
-  That's Lane B. Cite it in interviews; don't build it.
-- **Large-scale pre-training / training infra** (parallelism, mega-
-  cluster reliability). That's Lane C.
-- **Alignment research** beyond what's necessary to get RLHF/RLVR to
-  work. Fascinating; not on the critical path.
-- **Multi-agent beyond the basics.** You'll cover it in Phase 2 via
-  LangChain's posts. Deeper work comes after you land the job.
-- **Kernels, CUDA, Triton, FlashAttention internals.** Lane B.
+- **Kernels, CUDA, Triton, FlashAttention internals.** Cite; don't
+  build. Lane-B deep stack.
+- **Tensor/pipeline/expert parallelism.** You'll meet Megatron's
+  ideas reading other papers; don't build TP on 8 GPUs unless Lane B.
+- **Mega-cluster training infra, checkpointing at scale, fault
+  tolerance.** Lane C.
+- **Alignment research** beyond what's needed to get RLHF/RLVR to
+  work.
+- **Multi-agent** beyond what LangChain's posts give you in Phase 3.
 
-If you catch yourself spending >1 day in any of the above, you are
-drifting from the plan.
+Catch yourself >1 day in any of these → you are drifting.
 
 ---
 
-## 7. Appendix — If you pick Lane B or Lane C
+## 7. Appendix — switching lanes
 
-**Lane B (inference systems):** the plan is already written — follow
-`study-guide.md` as the reading list and `buildable-projects.md`
-items 1–14 as the projects. Keep Phase 1 and the foundations section
-here; swap Phases 2–4 for that plan. Target JDs: vLLM/SGLang
-contributors, Anthropic/OpenAI inference engineers, NVIDIA.
-
-**Lane C (training infra):** read *How to Scale Your Model* (Google
-DeepMind/JAX, free online book) + Megatron paper + nanoGPT at scale +
-torchtitan code. Build: a multi-node TP/FSDP run on 2–4 GPUs, a
-checkpointing system, a fault-tolerant training loop. Capstone: a
-reproduction of a public pretraining recipe at 1B scale. Target JDs:
-OpenAI/Anthropic/DeepMind training infra.
+- **Lane B (inference systems):** keep Phases 1–2; replace Phase 3's
+  harness with deeper serving work from `buildable-projects.md`
+  items 6–14 (speculative decoding, chunked prefill scheduler, KV
+  quant, TP on 2 GPUs, disaggregation, Triton kernel). Keep Phase 4
+  (evals still matter). Drop Phase 5. Target: vLLM/SGLang
+  contributions, Anthropic/OpenAI inference engineering.
+- **Lane C (training infra):** read *How to Scale Your Model* +
+  Megatron + torchtitan code; build a multi-node TP/FSDP run + a
+  checkpointing system; capstone = reproduce a public pretraining
+  recipe at 1B scale. Target: OpenAI/Anthropic/DeepMind training.
 
 ---
 
 ## 8. One-sentence summary
 
-**Build a minimal agent harness → wrap it in rigorous evals → post-
-train a small reasoning model inside your own harness with RL →
-publish the receipts.** Everything else is optional.
+**Build one minimal harness, build one real product on top of it,
+wrap it in rigorous evals, then post-train a small reasoning model
+inside your own harness with RL. Publish the receipts.**
