@@ -308,28 +308,38 @@ Now touch model weights. Small, focused, the path to Level 4.
 1. Sebastian Raschka — *Build a Reasoning Model (From Scratch)*,
    paired with Cameron R. Wolfe — *Demystifying Reasoning Models*.
    Do the book's exercises; use Wolfe for concept reinforcement.
-2. HF smol-course (SFT + DPO units). Run the notebooks.
-3. Nathan Lambert — *RLHF Book*. Textbook.
-4. DPO paper (Rafailov et al., 2023).
-5. DeepSeek-R1 paper.
-6. Tulu 3 report (AI2).
-7. Cameron R. Wolfe — *RL Scaling Laws for LLMs* + *GRPO++: Tricks
+   **Raschka's from-scratch PyTorch is your learning vehicle** —
+   same genre as nano-vLLM / deepagents.
+2. Nathan Lambert — *RLHF Book*. Textbook.
+3. DPO paper (Rafailov et al., 2023).
+4. DeepSeek-R1 paper.
+5. Tulu 3 report (AI2).
+6. Cameron R. Wolfe — *RL Scaling Laws for LLMs* + *GRPO++: Tricks
    for Making RL Actually Work*. **Required before P5.** Vanilla
    GRPO stalls without the variants (GSPO / DAPO / Dr. GRPO / TIS /
    CISPO); this is where you learn which to reach for.
-8. Apple — *RL for Long-Horizon Interactive LLM Agents*
+7. Apple — *RL for Long-Horizon Interactive LLM Agents*
    (arXiv:2502.01600). LOOP; cleanest multi-turn agent RL paper.
-9. Agent-RLVR (arXiv:2506.11425) + DeepSWE.
+8. Agent-RLVR (arXiv:2506.11425) + DeepSWE.
+
+**Diff-chain for Phase 5, same shape as Phase 2:**
+`Raschka's book code` → `simple_GRPO` (lsdefine) → **verl**
+(ByteDance). Raschka teaches from scratch; `simple_GRPO` is the
+cleanest mid-size reference (vLLM-in-sync rollouts, <1k lines);
+verl is the production target — Ray-based, hybrid engine (FSDP/
+Megatron training + vLLM/SGLang rollout), 3D-HybridEngine for
+resharding. TRL is HF tutorial code; do not center on it.
 
 **Defer:** PPO (DPO subsumes what you need), HAAF, multi-agent RL
 surveys, everything else.
 
 **Build P4 — SFT + DPO on a small model (2 weeks).**
-SmolLM3 or Qwen3-0.6B. TRL. Write the loops yourself once; diff
-against TRL after. (Small-model choice is deliberate: under tight
-compute, learning efficiency saturates with size — you get more
-update steps at 0.6B than at 8B. See the Qwen 2.5 scaling paper
-covered in Wolfe's *RL Scaling Laws*.)
+SmolLM3 or Qwen3-0.6B. Write the loops from scratch in PyTorch
+(Raschka-style); diff against verl's `dpo_trainer` after.
+(Small-model choice is deliberate: under tight compute, learning
+efficiency saturates with size — you get more update steps at 0.6B
+than at 8B. See the Qwen 2.5 scaling paper covered in Wolfe's
+*RL Scaling Laws*.)
 
 **Build P5 — GRPO with a code-execution verifier (4 weeks).**
 Same loop pattern as DPO project; reward = unit-test pass fraction.
@@ -386,9 +396,10 @@ You don't need more projects. You need legibility.
   blog posts. Reference them in cover letters.
 
 **Contribute (high-leverage if you can):**
-One merged PR to **TRL**, **deepagents**, or **Inspect AI** in the
-area you built. Even small — shows you can land code in someone
-else's repo.
+One merged PR to **verl**, **deepagents**, or **Inspect AI** in the
+area you built. verl signals production RL experience; deepagents
+signals harness chops; Inspect AI signals eval discipline. Even a
+small PR — shows you can land code in someone else's repo.
 
 **Interview prep:**
 - 5 live whiteboards with a peer: "design an eval for X," "add memory
