@@ -1,7 +1,5 @@
-from pathlib import Path
-
 import torch
-from reasoning_from_scratch.qwen3 import QWEN_CONFIG_06_B, Qwen3Model, Qwen3Tokenizer
+from reasoning_from_scratch.qwen3 import KVCache
 
 
 def get_device(enable_tensor_cores=True):
@@ -33,31 +31,36 @@ def get_device(enable_tensor_cores=True):
     return device
 
 
-device = torch.device("cpu")  # get_device()
+@torch.inference_mode
+def generate_text_basic_stream(model, token_ids, max_new_tokens, eos_token_id=None):
+    model.eval()
 
-tokenizer_path = Path("qwen3") / "tokenizer-base.json"
-tokenizer = Qwen3Tokenizer(str(tokenizer_path))
+    for _ in range(max_new_tokens):
+        out = model(token_ids)[:, -1]
+        next_token = torch.argmax(out, dim=-1, keepdim=True)
 
-model_path = Path("qwen3") / "qwen3-0.6B-base.pth"
-model = Qwen3Model(QWEN_CONFIG_06_B)
-model.load_state_dict(torch.load(model_path))
-model.to(device)
+        if eos_token_id is not None and torch.all(next_token == eos_token_id):
+            break
 
-if __name__ == "__main__":
-    prompt = "Explain large language models."
-    input_token_ids_list = tokenizer.encode(prompt)
-    print(f"Number of input tokens: {len(input_token_ids_list)}")
+        yield next_token
 
-    input_tensor = torch.tensor(input_token_ids_list)
-    input_tensor_fmt = input_tensor.unsqueeze(0).to(device)
+        token_ids = torch.cat([token_ids, next_token], dim=1)
 
-    with torch.inference_mode():
-        output_tensor = model(input_tensor_fmt)
 
-    output_tensor_fmt = output_tensor.squeeze(0)
-    # decoded = tokenizer.decode(output_tensor_fmt)
-    # print(decoded)
-    print(f"Formatted Output tensor shape: {output_tensor_fmt.shape}")
-    last_token_id = output_tensor_fmt[-1].argmax(dim=-1, keepdim=True)
-    last_token = tokenizer.decode(last_token_id)
-    print(f"Last token: {last_token}")
+@torch.inference_mode
+def generate_text_basic_stream_cache(
+    model, token_ids, max_new_tokens, eos_token_id=None
+):
+    model.eval()
+    cache = KVCache(n_layers=[model.cfg["n_layers"]])
+    model.reset_kv_cache()
+
+    out = model(token_ids, cache=cache)[:, -1]
+    for _ in range(max_new_tokens):
+        next_token = torch.argmax(out, dim=-1, keepdim=True)
+
+        if eos_token_id is not None and torch.all(next_token == eos_token_id):
+            break
+
+        yield next_token
+        out = model(next_token, cache=cache)[:, -1]
